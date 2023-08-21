@@ -1,0 +1,62 @@
+dataset_name: soccernet
+train_split:  ['train', 'valid', 'test']
+val_split: ['valid']
+test_split: ['challenge']
+chunk_size: 50
+outputrate: 2
+rC: 2
+rD: 3
+
+use_frames: False
+audio: True
+baidu: True
+
+path_frames: <path_to_frames>
+path_labels: <path_to_labels>
+path_baidu: <path_to_baidu>
+path_audio: <path_to_audio>
+path_store: <path_store_data>
+path_experiments: <path_save_experiments>
+store: True
+max_games: 600
+framerate: 2
+
+model: {
+  frame_augmentation: True,
+  frame_normalization: soccernet,
+  frame_resize: 224,
+  feature_augmentation: True,
+  mixup: True,
+  mixup_nqueue: 2,
+  mixup_balanced: True,
+  mixup_alpha: 1.,
+  mixup_beta: .6,
+  dim: 512,
+  dropout: 0.4,
+  TE_layers: 3,
+  TE_hierarchical: True,
+  TD_layers: 3,
+  num_classes: 17,
+  uncertainty: True,
+  uncertainty_mode: loglikelihood,
+  temporal_drop_p: 0.5,
+  random_switch_p: 0.3
+}
+
+wC: 100
+wD: 1
+focal: True
+
+LR: 0.00005
+BS: 8
+max_epochs: 83
+warmup_iter: 5
+patience: 15
+num_workers: 1
+seed: 4
+
+test_only: False
+NMS_window: 8
+NMS_threshold: 0.01
+postprocessing: SNMS 
+test_stride: 8
