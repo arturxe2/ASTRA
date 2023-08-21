@@ -105,7 +105,7 @@ def main(args, cfg):
         dataset_Test  = SoccerNetFramesTesting(path_frames = cfg['path_frames'], path_labels = cfg['path_labels'], path_baidu = cfg['path_baidu'],
                                         path_audio = cfg['path_audio'], split = split, outputrate = cfg['outputrate'], chunk_size = cfg['chunk_size'], 
                                         baidu = cfg['baidu'], audio = cfg['audio'])
-        
+
         print('Test loader')
         test_loader = torch.utils.data.DataLoader(dataset_Test, batch_size = 1, shuffle = False, num_workers = 1, pin_memory = True)
 
