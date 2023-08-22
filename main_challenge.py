@@ -110,42 +110,48 @@ def main(args, cfg):
         test_loader = torch.utils.data.DataLoader(dataset_Test, batch_size = 1, shuffle = False, num_workers = 1, pin_memory = True)
 
         #Test spotting
-        results_l, results_t = testSpotting(test_loader, model = model, model_name = args.model_name, NMS_threshold = cfg['NMS_threshold'], 
-                                framerate = cfg['framerate'], outputrate = cfg['outputrate'], chunk_size = cfg['chunk_size'], path_experiments = cfg['path_experiments'],)
+        if split != 'challenge':
 
-        a_mAP = results_l["a_mAP"]
-        a_mAP_per_class = results_l["a_mAP_per_class"]
-        a_mAP_visible = results_l["a_mAP_visible"]
-        a_mAP_per_class_visible = results_l["a_mAP_per_class_visible"]
-        a_mAP_unshown = results_l["a_mAP_unshown"]
-        a_mAP_per_class_unshown = results_l["a_mAP_per_class_unshown"]
+            results_l, results_t = testSpotting(test_loader, model = model, model_name = args.model_name, NMS_threshold = cfg['NMS_threshold'], 
+                                    framerate = cfg['framerate'], outputrate = cfg['outputrate'], chunk_size = cfg['chunk_size'], path_experiments = cfg['path_experiments'],)
 
-        wandb.log({"test/loose_aMAP": a_mAP})
+            a_mAP = results_l["a_mAP"]
+            a_mAP_per_class = results_l["a_mAP_per_class"]
+            a_mAP_visible = results_l["a_mAP_visible"]
+            a_mAP_per_class_visible = results_l["a_mAP_per_class_visible"]
+            a_mAP_unshown = results_l["a_mAP_unshown"]
+            a_mAP_per_class_unshown = results_l["a_mAP_per_class_unshown"]
 
-        logging.info("Best Performance at end of training (loose metric)")
-        logging.info("a_mAP visibility all: " +  str(a_mAP))
-        logging.info("a_mAP visibility all per class: " +  str( a_mAP_per_class))
-        logging.info("a_mAP visibility visible: " +  str( a_mAP_visible))
-        logging.info("a_mAP visibility visible per class: " +  str( a_mAP_per_class_visible))
-        logging.info("a_mAP visibility unshown: " +  str( a_mAP_unshown))
-        logging.info("a_mAP visibility unshown per class: " +  str( a_mAP_per_class_unshown))
+            wandb.log({"test/loose_aMAP": a_mAP})
 
-        a_mAP = results_t["a_mAP"]
-        a_mAP_per_class = results_t["a_mAP_per_class"]
-        a_mAP_visible = results_t["a_mAP_visible"]
-        a_mAP_per_class_visible = results_t["a_mAP_per_class_visible"]
-        a_mAP_unshown = results_t["a_mAP_unshown"]
-        a_mAP_per_class_unshown = results_t["a_mAP_per_class_unshown"]
+            logging.info("Best Performance at end of training (loose metric)")
+            logging.info("a_mAP visibility all: " +  str(a_mAP))
+            logging.info("a_mAP visibility all per class: " +  str( a_mAP_per_class))
+            logging.info("a_mAP visibility visible: " +  str( a_mAP_visible))
+            logging.info("a_mAP visibility visible per class: " +  str( a_mAP_per_class_visible))
+            logging.info("a_mAP visibility unshown: " +  str( a_mAP_unshown))
+            logging.info("a_mAP visibility unshown per class: " +  str( a_mAP_per_class_unshown))
 
-        wandb.log({"test/tight_aMAP": a_mAP})
+            a_mAP = results_t["a_mAP"]
+            a_mAP_per_class = results_t["a_mAP_per_class"]
+            a_mAP_visible = results_t["a_mAP_visible"]
+            a_mAP_per_class_visible = results_t["a_mAP_per_class_visible"]
+            a_mAP_unshown = results_t["a_mAP_unshown"]
+            a_mAP_per_class_unshown = results_t["a_mAP_per_class_unshown"]
 
-        logging.info("Best Performance at end of training (tight metric)")
-        logging.info("a_mAP visibility all: " +  str(a_mAP))
-        logging.info("a_mAP visibility all per class: " +  str( a_mAP_per_class))
-        logging.info("a_mAP visibility visible: " +  str( a_mAP_visible))
-        logging.info("a_mAP visibility visible per class: " +  str( a_mAP_per_class_visible))
-        logging.info("a_mAP visibility unshown: " +  str( a_mAP_unshown))
-        logging.info("a_mAP visibility unshown per class: " +  str( a_mAP_per_class_unshown))
+            wandb.log({"test/tight_aMAP": a_mAP})
+
+            logging.info("Best Performance at end of training (tight metric)")
+            logging.info("a_mAP visibility all: " +  str(a_mAP))
+            logging.info("a_mAP visibility all per class: " +  str( a_mAP_per_class))
+            logging.info("a_mAP visibility visible: " +  str( a_mAP_visible))
+            logging.info("a_mAP visibility visible per class: " +  str( a_mAP_per_class_visible))
+            logging.info("a_mAP visibility unshown: " +  str( a_mAP_unshown))
+            logging.info("a_mAP visibility unshown per class: " +  str( a_mAP_per_class_unshown))
+        
+        else:
+            testSpotting(test_loader, model = model, model_name = args.model_name, NMS_threshold = cfg['NMS_threshold'], 
+                                    framerate = cfg['framerate'], outputrate = cfg['outputrate'], chunk_size = cfg['chunk_size'], path_experiments = cfg['path_experiments'],)
 
         wandb.finish()
 
