@@ -4,7 +4,7 @@
 <a href="https://pytorch.org/get-started/locally/"><img alt="PyTorch" src="https://img.shields.io/badge/PyTorch-ee4c2c?logo=pytorch&logoColor=white"></a> 
 
 
-![ASTRA's architecture](images/arch.png)
+![ASTRA's architecture](images/ASTRA_diagram.png)
 
 This repository contains the PyTorch implementation of the paper:
 
