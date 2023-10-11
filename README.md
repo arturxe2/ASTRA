@@ -28,7 +28,7 @@ pip install -r requirements.txt
 
 #### [**> SoccerNet-v2**](https://www.soccer-net.org/data)
 
-Our model is built to tackle the task of Action Spotting in the SoccerNet-v2 dataset. To do so, it relies in both video and audio sources of information. We leverage visual data by utilizing Baidu features extracted from their [github repository](https://github.com/baidu-research/vidpress-sports). For the audio, we extract the log-mel spectrogram from the original videos. It's important to note that the code provided in this repository presupposes the prior extraction and storage of Baidu features and audio spectrograms in alignment with the standard SoccerNet structure:
+Our model is built to tackle the task of Action Spotting in the SoccerNet-v2 dataset. To do so, it relies in both video and audio sources of information. We leverage visual data by utilizing Baidu features extracted from their [github repository](https://github.com/baidu-research/vidpress-sports). For the audio, we extract the log-mel spectrogram from the original videos (ask for the audio features writing to arturxe@gmail.com). It's important to note that the code provided in this repository presupposes the prior extraction and storage of Baidu features and audio spectrograms in alignment with the standard SoccerNet structure:
 
 ```
 data-folder
