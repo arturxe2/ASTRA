@@ -12,6 +12,7 @@ This repository contains the PyTorch implementation of the paper:
 *Artur Xarles, Sergio Escalera, Thomas B. Moeslund, and Albert Clapés*<br>
 **ACM MMSports'23**<br>
 
+* CODE PENDING SOME MODIFICATIONS (~27/10/2023)
 
 ### 1. Environment
 
