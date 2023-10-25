@@ -26,7 +26,6 @@ def trainerAS(train_loader,
             patience,
             model_name,
             max_epochs=1000,
-            batch_size=32,
             chunk_size=32,
             outputrate=2,
             path_experiments=None):
@@ -88,7 +87,6 @@ def trainerAS_test(train_loader,
             patience,
             model_name,
             max_epochs=1000,
-            batch_size=32,
             chunk_size=32,
             outputrate=2,
             path_experiments=None):
@@ -181,40 +179,31 @@ def trainAS(dataloader,
             labels = data['labels'].cuda()
             labelsD = data['labels_displ'].cuda()
 
-            if model.baidu:
-                featB = data['featB'].cuda()
-            else:
-                featB = None
+            featB = data['featB'].cuda()
             if model.audio:
                 featA = data['featA'].cuda()
             else:
                 featA = None
-            if model.use_frames:
-                featF = data['frames'].cuda()
-            else:
-                featF = None
 
             #make predictions
             with autocast(device_type='cuda', dtype=torch.float16):
                 if train:
-                    output = model(featsB = featB, featsA = featA, featsF = featF, labels = labels, labelsD = labelsD, inference = False)
+                    output = model(featsB = featB, featsA = featA, labels = labels, labelsD = labelsD, inference = False)
                     lossC, lossD = criterion(output['labels'], output['preds'], output['labelsD'], output['predsD'])
 
                 else:
-                    preds = []
                     with torch.no_grad():
-                        output = model(featsB = featB, featsA = featA, featsF = featF, inference = True)
+                        output = model(featsB = featB, featsA = featA, inference = True)
                         lossC, lossD = criterion(labels, output['preds'], labelsD, output['predsD'])
 
-                    if (model.model_cfg['uncertainty']) & (model.model_cfg['uncertainty_mode'] != 'mse'):
+                    if (model.model_cfg['uncertainty']):
                         output['predsD'] = output['predsD'][:, :, :, 0]
                     
-                    #To compute MAP (labels + predictions)
+                    #To compute MAP (labels + predictions) in validation
                     labs = pred2vec([labels, labelsD], chunk_size = chunk_size, outputrate = outputrate, threshold = 0.2, target = True, window = 4)
                     y = [list_labels.append(lab) for lab in labs]
                     y = [list_preds.append(pred) for pred in pred2vec([output['preds'], output['predsD']], chunk_size = chunk_size, outputrate = outputrate, threshold = 0.2, NMS = True, window = 4)]
                     
-                
                 loss = lossC + lossD
 
             if train:
@@ -272,9 +261,8 @@ def trainAS(dataloader,
         return amap
 
 
-def testSpotting(dataloader, model, model_name, overwrite=True, NMS_window = 8, NMS_threshold=0.5, framerate = 2, outputrate=2, 
-                chunk_size=32, stride = 8, path_frames='/data-local/data1-ssd/axesparraguera/SoccerNetFrames', 
-                postprocessing = 'SNMS', path_experiments = None):
+def testSpotting(dataloader, model, model_name, overwrite=True, NMS_window = 8, NMS_threshold=0.5, outputrate=2, 
+                chunk_size=32, stride = 8, postprocessing = 'SNMS', path_experiments = None):
 
     """
     Function for inference of the action spotting model (and evaluation)
@@ -297,14 +285,6 @@ def testSpotting(dataloader, model, model_name, overwrite=True, NMS_window = 8, 
 
         model.eval()
 
-        count_visible = torch.FloatTensor([0.0]*dataloader.dataset.num_classes)
-        count_unshown = torch.FloatTensor([0.0]*dataloader.dataset.num_classes)
-        count_all = torch.FloatTensor([0.0]*dataloader.dataset.num_classes)
-
-        #nº of frames per clip + nº of repeated frames between consecutive clips
-        n_frames = chunk_size * framerate
-        n_repeated = max(0, n_frames - stride * framerate)
-
         end = time.time()
         
         #Iterate over games (dataloader)
@@ -315,20 +295,16 @@ def testSpotting(dataloader, model, model_name, overwrite=True, NMS_window = 8, 
                 data_time.update(time.time() - end)
     
                 game_ID = game_ID[0]
-                label_half1 = data['label1'].float().squeeze(0)
-                label_half2 = data['label2'].float().squeeze(0)
 
-                if model.baidu:
-                    featB_half1 = data['featB1'].reshape(-1, data['featB1'].shape[-1])
-                    featB_half1 = feats2clip(featB_half1, stride = stride, clip_length = chunk_size)
+                featB_half1 = data['featB1'].reshape(-1, data['featB1'].shape[-1])
+                sec1 = featB_half1.shape[0]
+                featB_half1 = feats2clip(featB_half1, stride = stride, clip_length = chunk_size)
 
-                    featB_half2 = data['featB2'].reshape(-1, data['featB2'].shape[-1])
-                    featB_half2 = feats2clip(featB_half2, stride = stride, clip_length = chunk_size)
-                    lenB1 = len(featB_half1)
-                    lenB2 = len(featB_half2)
-                else:
-                    lenB1 = int(data['frames1'])
-                    lenB2 = int(data['frames2'])
+                featB_half2 = data['featB2'].reshape(-1, data['featB2'].shape[-1])
+                sec2 = featB_half2.shape[0]
+                featB_half2 = feats2clip(featB_half2, stride = stride, clip_length = chunk_size)
+                lenB1 = len(featB_half1)
+                lenB2 = len(featB_half2)
 
                 if model.audio:
                     featA_half1 = data['featA1'].reshape(-1, data['featA1'].shape[-1])
@@ -347,30 +323,22 @@ def testSpotting(dataloader, model, model_name, overwrite=True, NMS_window = 8, 
                 featV = []
                 
                 #Initialize half1 preds
-                timestamp_long_half_1 = np.zeros((data['frames1'] // 25 * outputrate + 1, 17))
+                timestamp_long_half_1 = np.zeros((sec1 * outputrate, 17))
                 q = 0
-                for b in tqdm(range(min(int(data['frames1'] // 25 // stride)+1, lenB1))):
-                    if (b % BS == 0) | (b == len(label_half1)-1):
+                for b in tqdm(range(lenB1)):
+                    if (b % BS == 0) | (b == lenB1-1):
                         if b != 0:
-                            if model.use_frames:
-                                featV = torch.stack([torch.stack(feat) for feat in featV]).cuda()
-                            else:
-                                featV = []
-                            if model.baidu:
-                                featB = featB_half1[b-q:b].clone().cuda()
-                            else:
-                                featB = None
+                            featB = featB_half1[b-q:b].clone().cuda()
                             if model.audio:
                                 featA = featA_half1[b-q:b].clone().cuda()
                             else:
                                 featA = None
-                            q = 0
 
                             with autocast(device_type='cuda', dtype=torch.float16):
                                 with torch.no_grad():
-                                    output = model(featsB = featB, featsA = featA, featsF = featV, inference = True)
+                                    output = model(featsB = featB, featsA = featA, inference = True)
                             predC = output['preds'].cpu().detach().numpy()
-                            if model.model_cfg['uncertainty'] & (model.model_cfg['uncertainty_mode'] != 'mse'):
+                            if model.model_cfg['uncertainty']:
                                 predD = output['predsD'][:, :, :, 0].cpu().detach().numpy()
                             else:
                                 predD = output['predsD'].cpu().detach().numpy()
@@ -386,55 +354,30 @@ def testSpotting(dataloader, model, model_name, overwrite=True, NMS_window = 8, 
                                             timestamp_long_half_1[position, k] = max(timestamp_long_half_1[position, k], prob)
                             
                             featV = []
-                    
-                    #Load frames
-                    q += 1
-                    if model.use_frames:
-                        initial_frame = int(int(b * 25 * stride)) // 4 * 4
-                        if b == 0:
-                            
-                            featV.append([read_image(os.path.join(path_frames, game_ID, 'half1', 'frame ' + str(max(0, min(int(data['frames1']), initial_frame + int(round((j * 25 / framerate) / 4) * 4)))) + '.jpg')) for j in range(n_frames)])
-                            if n_repeated > 0:
-                                aux_featV = featV[-1][-n_repeated:]
+                            q = 0
 
-                        else:
-                            #featV.append([cv2.imread(os.path.join(path_frames, game_ID, 'half1', 'frame ' + str(max(0, min(int(frames1), int(initial_frame + j * framestride)))) + '.jpg')) for j in range(n_frames)])
-                            if n_repeated == 0:
-                                featV.append([read_image(os.path.join(path_frames, game_ID, 'half1', 'frame ' + str(max(0, min(int(data['frames1']), initial_frame + int(round((j * 25 / framerate) / 4) * 4)))) + '.jpg')) for j in range(n_frames)])
-                            else:
-                                
-                                s = [aux_featV.append(read_image(os.path.join(path_frames, game_ID, 'half1', 'frame ' + str(max(0, min(int(data['frames1']), initial_frame + int(round((j * 25 / framerate) / 4) * 4)))) + '.jpg'))) for j in range(n_repeated, n_frames)]
-                                featV.append(aux_featV)
-                                aux_featV = featV[-1][-n_repeated:]
+                    q += 1
 
                 #HALF 2 PREDICTIONS
                 featV = []
                 
                 #Initialize half2 preds
-                timestamp_long_half_2 = np.zeros((data['frames2'] // 25 * outputrate + 1, 17))
+                timestamp_long_half_2 = np.zeros((sec2 * outputrate, 17))
                 q = 0
-                for b in tqdm(range(min(int(data['frames2'] // 25 // stride)+1, lenB2))):
-                    if (b % BS == 0) | (b == len(label_half2)-1):
+                for b in tqdm(range(lenB2)):
+                    if (b % BS == 0) | (b == lenB2-1):
                         if b != 0:
-                            if model.use_frames:
-                                featV = torch.stack([torch.stack(feat) for feat in featV]).cuda()
-                            else:
-                                featV = []
-                            if model.baidu:
-                                featB = featB_half2[b-q:b].clone().cuda()
-                            else:
-                                featB = None
+                            featB = featB_half2[b-q:b].clone().cuda()
                             if model.audio:
                                 featA = featA_half2[b-q:b].clone().cuda()
                             else:
                                 featA = None
-                            q = 0
 
                             with autocast(device_type='cuda', dtype=torch.float16):
                                 with torch.no_grad():
-                                    output = model(featsB = featB, featsA = featA, featsF = featV, inference = True)
+                                    output = model(featsB = featB, featsA = featA, inference = True)
                             predC = output['preds'].cpu().detach().numpy()
-                            if model.model_cfg['uncertainty'] & (model.model_cfg['uncertainty_mode'] != 'mse'):
+                            if model.model_cfg['uncertainty']:
                                 predD = output['predsD'][:, :, :, 0].cpu().detach().numpy()
                             else:
                                 predD = output['predsD'].cpu().detach().numpy()
@@ -450,30 +393,10 @@ def testSpotting(dataloader, model, model_name, overwrite=True, NMS_window = 8, 
                                             timestamp_long_half_2[position, k] = max(timestamp_long_half_2[position, k], prob)
                             
                             featV = []
-                    
-                    #Load frames
+                            q = 0
+
                     q += 1
-                    if model.use_frames:
-                        initial_frame = int(int(b * 25 * stride)) // 4 * 4
-                        if b == 0:
-                            
-                            featV.append([read_image(os.path.join(path_frames, game_ID, 'half2', 'frame ' + str(max(0, min(int(data['frames2']), initial_frame + int(round((j * 25 / framerate) / 4) * 4)))) + '.jpg')) for j in range(n_frames)])
-                            if n_repeated > 0:
-                                aux_featV = featV[-1][-n_repeated:]
-
-                        else:
-                            #featV.append([cv2.imread(os.path.join(path_frames, game_ID, 'half1', 'frame ' + str(max(0, min(int(frames1), int(initial_frame + j * framestride)))) + '.jpg')) for j in range(n_frames)])
-                            if n_repeated == 0:
-                                featV.append([read_image(os.path.join(path_frames, game_ID, 'half2', 'frame ' + str(max(0, min(int(data['frames2']), initial_frame + int(round((j * 25 / framerate) / 4) * 4)))) + '.jpg')) for j in range(n_frames)])
-                            else:
-                                s = [aux_featV.append(read_image(os.path.join(path_frames, game_ID, 'half2', 'frame ' + str(max(0, min(int(data['frames2']), initial_frame + int(round((j * 25 / framerate) / 4) * 4)))) + '.jpg'))) for j in range(n_repeated, n_frames)]
-                                featV.append(aux_featV)
-                                aux_featV = featV[-1][-n_repeated:]
-
-                spotting_grountruth.append(torch.abs(label_half1))
-                spotting_grountruth.append(torch.abs(label_half2))
-                spotting_grountruth_visibility.append(label_half1)
-                spotting_grountruth_visibility.append(label_half2)
+                    
                 spotting_predictions.append(timestamp_long_half_1)
                 spotting_predictions.append(timestamp_long_half_2)
 
@@ -487,8 +410,6 @@ def testSpotting(dataloader, model, model_name, overwrite=True, NMS_window = 8, 
                 desc += f'(it:{data_time.val:.3f}s) '
                 t.set_description(desc)
                 
-        
-                
                 if postprocessing == 'NMS':
                     get_spot = get_spot_from_NMS
                     nms_window = [NMS_window] * 17
@@ -496,10 +417,6 @@ def testSpotting(dataloader, model, model_name, overwrite=True, NMS_window = 8, 
                 elif postprocessing == 'SNMS':
                     get_spot = get_spot_from_SNMS
                     nms_window = [5, 7, 9, 12, 10, 14, 14, 5, 8, 8, 8, 8, 13, 5, 6, 6, 6]
-
-                elif postprocessing == 'WSF':
-                    get_spot = get_spot_from_WSF
-                    nms_window = [NMS_window] * 17
         
                 json_data = dict()
                 json_data["UrlLocal"] = game_ID

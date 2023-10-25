@@ -12,13 +12,9 @@ Here we provide a description of the main parameters on the configuration files.
 
 - `outputrate`: Specifies the prediction rate, the number of predictions generated at each second. 
 
-- `use_frames`: When set to True, permits the use of raw frames. For retaining the original ASTRA model behavior, set to False.
-
 - `audio`: Specifies the inclusion of audio information.
 
 - `baidu`: Specifies the inclusion of baidu features.
-
-- `path_frames`: Specifies the directory where raw frames are stored, if applicable.
 
 - `path_labels`: Specifies the directory where action labels are stored.
 

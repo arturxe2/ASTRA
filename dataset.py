@@ -16,22 +16,18 @@ class SoccerNetFrames(Dataset):
     Dataset class for SoccerNet
     """
     def __init__(self, 
-                path_frames = 'SoccerNetFrames', 
                 path_labels = "ResNET_TF2",
                 path_store = "SoccerNetSamples",
                 path_baidu = "Baidu_features",
                 path_audio = 'SoccerNetAudio',
-                features_baidu = "baidu_soccer_embeddings.npy", split=["train"], chunk_size=32, framerate = 2, outputrate = 2, 
-                stride = 4, rC = 3, rD = 6, store = True, max_games = 1000, use_frames = True):
+                features_baidu = "baidu_soccer_embeddings.npy", split=["train"], chunk_size=32, outputrate = 2, 
+                stride = 4, rC = 3, rD = 6, store = True, max_games = 1000):
 
         self.listGames = getListGames(split)
         self.chunk_size = chunk_size
-        self.framerate = framerate
         self.outputrate = outputrate
-        self.path_frames = path_frames
-        self.path_store = path_store + str(chunk_size) + '_Split' + str(split[0]) + str(len(split)) + '_Framerate' + str(self.framerate) + '_Outputrate' + str(self.outputrate) + '_rC' + str(rC) + '_rD' + str(rD)
+        self.path_store = os.path.join(path_store, str(chunk_size) + '_Split' + str(split[0]) + str(len(split)) + '_Outputrate' + str(self.outputrate) + '_rC' + str(rC) + '_rD' + str(rD))
         self.split = split[0]
-        self.use_frames = use_frames
         self.stride = stride
 
         #Split clips in groups without overlapping
@@ -43,15 +39,12 @@ class SoccerNetFrames(Dataset):
 
         logging.info("Pre-compute clips")
         
-        self.game_frames = list()
         self.game_labels = list()
-        self.frames_clip = int(self.chunk_size * self.framerate)
         
         #Check if store clips (or read them)
         if store:
             
             self.path_list = []
-            self.frames_path = []
 
             #Label frequency of each class
             self.freq = np.zeros(self.num_classes+1)
@@ -64,40 +57,8 @@ class SoccerNetFrames(Dataset):
                 ngame += 1
                 if ngame == max_games:
                     break
-
-                #Check number of frames per half
-                i = 100000
-                found1 = False
-                found2 = False
-                while i > 0:
-                    ex1 = os.path.exists(os.path.join(self.path_frames, game, 'half1', 'frame ' + str(i) + '.jpg'))
-                    ex2 = os.path.exists(os.path.join(self.path_frames, game, 'half2', 'frame ' + str(i) + '.jpg'))
-                    
-                    if (not found1) & ex1:
-                        frames1 = i
-                        found1 = True
-                    if (not found2) & ex2:
-                        frames2 = i
-                        found2 = True
-                    if found1 & found2:
-                        break
-                    i -= 4
-
-                # Load labels
-                labels = json.load(open(os.path.join(path_labels, game, self.labels)))
-
-                #Labels target
-                label_half1 = np.zeros((math.ceil(frames1 / (self.stride * 25)), self.chunk_size*outputrate, self.num_classes+1)) #nclips x cs + x nclasses
-                label_half1[:, :, 0] = 1 #BG classes
-
-                label_half2 = np.zeros((math.ceil(frames2 / (self.stride * 25)), self.chunk_size*outputrate, self.num_classes+1))
-                label_half2[:, :, 0] = 1 #BG classes
-
-                #Displacement targets
-                label_half1_displ = np.zeros((math.ceil(frames1 / (self.stride * 25)), self.chunk_size*outputrate, self.num_classes+1)) + 1000 #nclips x cs+1 x nclasses
-                label_half2_displ = np.zeros((math.ceil(frames2 / (self.stride * 25)), self.chunk_size*outputrate, self.num_classes+1)) + 1000
-
-                #Baidu features
+                
+                #Load Baidu features
                 featB_half1 = np.load(os.path.join(path_baidu, game, '1_' + features_baidu))
                 featB_half1 = featB_half1.reshape(-1, featB_half1.shape[-1])
                 featB_half2 = np.load(os.path.join(path_baidu, game, '2_' + features_baidu))
@@ -107,12 +68,24 @@ class SoccerNetFrames(Dataset):
                 featB_half1 = feats2clip(torch.from_numpy(featB_half1), stride = self.stride, clip_length = self.chunk_size)
                 featB_half2 = feats2clip(torch.from_numpy(featB_half2), stride = self.stride, clip_length = self.chunk_size)
 
-
-                #Audio mel-spectrogram
+                #Load audio mel-spectrogram
                 featA_half1 = np.load(os.path.join(path_audio, game, 'audio1.npy'))
-                featA_half2 = np.load(os.path.join(path_audio, game, 'audio2.npy'))
                 featA_half1 = feats2clip(torch.from_numpy(featA_half1).T, stride = self.stride * 100, clip_length = self.chunk_size * 100)
+                featA_half2 = np.load(os.path.join(path_audio, game, 'audio2.npy'))
                 featA_half2 = feats2clip(torch.from_numpy(featA_half2).T, stride = self.stride * 100, clip_length = self.chunk_size * 100)
+
+                #Load labels
+                labels = json.load(open(os.path.join(path_labels, game, self.labels)))
+
+                #Labels target
+                label_half1 = np.zeros((featB_half1.shape[0], self.chunk_size * outputrate, self.num_classes+1))
+                label_half1[:, :, 0] = 1 #BG classes
+                label_half2 = np.zeros((featB_half2.shape[0], self.chunk_size * outputrate, self.num_classes+1))
+                label_half2[:, :, 0] = 1 #BG classes
+
+                #Displacement targets
+                label_half1_displ = np.zeros((math.ceil(featB_half1.shape[0]), self.chunk_size * outputrate, self.num_classes+1)) + 1000
+                label_half2_displ = np.zeros((math.ceil(featB_half2.shape[0]), self.chunk_size * outputrate, self.num_classes+1)) + 1000
 
                 #Update labels iterating the annotations
                 for annotation in labels["annotations"]:
@@ -178,7 +151,7 @@ class SoccerNetFrames(Dataset):
 
                 #Store half 1 clips data
                 j = 0
-                for i in range(min(label_half1.shape[0], featB_half1.shape[0])):
+                for i in range(featB_half1.shape[0]):
                     #Store labels
                     np.save(self.path_store + '/group' + str(j) + '/chunk' + str(nclip) + '_labels.npy', label_half1[i, :, :])
                     #Store displacements
@@ -190,9 +163,7 @@ class SoccerNetFrames(Dataset):
 
                     #Update path list
                     self.path_list.append(self.path_store + '/group' + str(j) + '/chunk' + str(nclip) + '_')
-                    #Clip frames path
-                    self.frames_path.append([os.path.join(self.path_frames, game, 'half1', 'frame ' + str(min(frames1, (i * 25 * self.stride) // 4 * 4 + int(round((l * 25 / self.framerate) / 4) * 4))) + '.jpg') for l in range(self.frames_clip)])
-
+                    
                     #Update group of clips                    
                     j += 1
                     if j == (self.chunk_size // self.stride):
@@ -200,7 +171,7 @@ class SoccerNetFrames(Dataset):
                         nclip += 1
 
                 #Store half 2 clips data
-                for i in range(min(label_half2.shape[0], featB_half2.shape[0])):
+                for i in range(featB_half2.shape[0]):
                     #Store labels
                     np.save(self.path_store + '/group' + str(j) + '/chunk' + str(nclip) + '_labels.npy', label_half2[i, :, :])
                     #Store displacements
@@ -212,9 +183,7 @@ class SoccerNetFrames(Dataset):
 
                     #Update path list
                     self.path_list.append(self.path_store + '/group' + str(j) + '/chunk' + str(nclip) + '_')
-                    #Clip frames path
-                    self.frames_path.append([os.path.join(self.path_frames, game, 'half2', 'frame ' + str(min(frames2, (i * 25 * self.stride) // 4 * 4 + int(round((l * 25 / self.framerate) / 4) * 4))) + '.jpg') for l in range(self.frames_clip)])
-
+                    
                     #Update group of clips                    
                     j += 1
                     if j == (self.chunk_size // self.stride):
@@ -225,11 +194,9 @@ class SoccerNetFrames(Dataset):
                 self.freq += label_half1.sum(0).sum(0)
                 self.freq += label_half2.sum(0).sum(0)
 
-            #Save clips path list, frames path list & actions frequency
+            #Save clips path list & actions frequency
             with open(self.path_store + '/' + split[0] + '_clip_paths.pkl', 'wb') as f:
                 pickle.dump(self.path_list, f)
-            with open(self.path_store + '/' + split[0] + '_frames_paths.pkl', 'wb') as f:
-                pickle.dump(self.frames_path, f)
             with open(self.path_store + '/' + split[0] + '_freq.pkl', 'wb') as f:
                 pickle.dump(self.freq, f)
 
@@ -239,13 +206,11 @@ class SoccerNetFrames(Dataset):
             #Read clips path list, frames path list & actions frequency
             with open(self.path_store + '/' + split[0] + '_clip_paths.pkl', 'rb') as f:
                 self.path_list = pickle.load(f)
-            with open(self.path_store + '/' + split[0] + '_frames_paths.pkl', 'rb') as f:
-                self.frames_path = pickle.load(f)
             with open(self.path_store + '/' + split[0] + '_freq.pkl', 'rb') as f:
                 self.freq = pickle.load(f)
 
         #Total number of clips
-        self.n_clips = len(self.frames_path)
+        self.n_clips = len(self.path_list)
 
         self.freq = self.freq.astype('int')
 
@@ -260,22 +225,16 @@ class SoccerNetFrames(Dataset):
         else:
             group = 0
         
-        #Read clip path & frames path
+        #Read clip path
         path = self.path_list[index*self.groups + group]
 
         #Initialize data dictionary
         data = dict()
 
-        if self.use_frames:
-            frames_path = self.frames_path[index*self.groups + group]
-            frames = [read_image(path) for path in frames_path]
-            data['frames'] = torch.stack(frames)
-
         data['labels'] = np.load(path + 'labels.npy')
         data['labels_displ'] = np.load(path + 'labels_displ.npy')
         data['featB'] = np.load(path + 'featB.npy')
         data['featA'] = np.load(path + 'featA.npy')
-
 
         return data
     
@@ -288,14 +247,12 @@ class SoccerNetFramesTesting(Dataset):
     Dataset class for SoccerNet (inference / testing)
     """
 
-    def __init__(self, path_frames = 'SoccerNetFrames', 
-                path_labels = "ResNET_TF2",
+    def __init__(self, path_labels = "ResNET_TF2",
                 path_baidu = "Baidu_features",
                 path_audio = 'SoccerNetAudio',
-                split=["test"], outputrate=2, chunk_size=4, baidu=False,
+                split=["test"], outputrate=2, chunk_size=4, baidu=True,
                 features_baidu = "baidu_soccer_embeddings.npy", audio = False):
         
-        self.path_frames = path_frames
         self.path_labels = path_labels
         self.path_baidu = path_baidu
         self.path_audio = path_audio
@@ -316,36 +273,9 @@ class SoccerNetFramesTesting(Dataset):
         self.labels="Labels-v2.json"
 
     def __getitem__(self, index):
-        
-        #Check number of frames per half
-        i = 100000
-        found1 = False
-        found2 = False
-        while i > 0:
-            ex1 = os.path.exists(os.path.join(self.path_frames, self.listGames[index], 'half1', 'frame ' + str(i) + '.jpg'))
-            ex2 = os.path.exists(os.path.join(self.path_frames, self.listGames[index], 'half2', 'frame ' + str(i) + '.jpg'))
-
-            if (not found1) & ex1:
-                frames1 = i
-                found1 = True
-            if (not found2) & ex2:
-                frames2 = i
-                found2 = True
-            if found1 & found2:
-                break
-            i -= 4
-
-        label_half1 = np.zeros((math.ceil(frames1 / (self.stride * 25)), self.chunk_size*self.outputrate+1, self.num_classes+1)) #nclips x cs+1 (ngrid) x nclasses
-        label_half1[:, :, 0] = 1 #BG classes
-
-        label_half2 = np.zeros((math.ceil(frames2 / (self.stride * 25)), self.chunk_size*self.outputrate+1, self.num_classes+1))
-        label_half2[:, :, 0] = 1 #BG classes
 
         data = dict()
-        data['label1'] = label_half1
-        data['label2'] = label_half2
-        data['frames1'] = frames1
-        data['frames2'] = frames2
+
         if self.baidu:
             featB_half1 = np.load(os.path.join(self.path_baidu, self.listGames[index], '1_' + self.features_baidu))
             featB_half2 = np.load(os.path.join(self.path_baidu, self.listGames[index], '2_' + self.features_baidu))

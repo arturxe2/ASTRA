@@ -35,19 +35,19 @@ def main(args, cfg):
 
     #create datasets
     if not cfg['test_only']:
-        dataset_Train = SoccerNetFrames(path_frames = cfg['path_frames'], path_labels = cfg['path_labels'], path_store = cfg['path_store'],
+        dataset_Train = SoccerNetFrames(path_labels = cfg['path_labels'], path_store = cfg['path_store'],
                                         path_baidu = cfg['path_baidu'], path_audio = cfg['path_audio'], split = cfg['train_split'], chunk_size = cfg['chunk_size'],
-                                        framerate = cfg['framerate'], outputrate = cfg['outputrate'], stride = cfg['chunk_size'] // 2, rC = cfg['rC'], rD = cfg['rD'],
-                                        store = cfg['store'], max_games = cfg['max_games'], use_frames = cfg['use_frames'])
+                                        outputrate = cfg['outputrate'], stride = cfg['chunk_size'] // 2, rC = cfg['rC'], rD = cfg['rD'],
+                                        store = cfg['store'], max_games = cfg['max_games'])
         
-        dataset_Valid = SoccerNetFrames(path_frames = cfg['path_frames'], path_labels = cfg['path_labels'], path_store = cfg['path_store'],
+        dataset_Valid = SoccerNetFrames(path_labels = cfg['path_labels'], path_store = cfg['path_store'],
                                         path_baidu = cfg['path_baidu'], path_audio = cfg['path_audio'], split = cfg['val_split'], chunk_size = cfg['chunk_size'],
-                                        framerate = cfg['framerate'], outputrate = cfg['outputrate'], stride = cfg['chunk_size'] // 2, rC = cfg['rC'], rD = cfg['rD'],
-                                        store = cfg['store'], max_games = cfg['max_games'], use_frames = cfg['use_frames'])
+                                        outputrate = cfg['outputrate'], stride = cfg['chunk_size'] // 2, rC = cfg['rC'], rD = cfg['rD'],
+                                        store = cfg['store'], max_games = cfg['max_games'])
     
     #ASTRA model
-    model = ASTRA(chunk_size = cfg['chunk_size'], n_frames = int(cfg['chunk_size'] * cfg['framerate']), n_output = int(cfg['outputrate'] * cfg['chunk_size']),
-                    baidu = cfg['baidu'], audio = cfg['audio'], use_frames = cfg['use_frames'], model_cfg = cfg['model'])
+    model = ASTRA(chunk_size = cfg['chunk_size'], n_output = int(cfg['outputrate'] * cfg['chunk_size']), baidu = cfg['baidu'], 
+                audio = cfg['audio'], model_cfg = cfg['model'])
     model = model.cuda()
 
     wandb.watch(model, log_freq=1000)  
@@ -94,17 +94,16 @@ def main(args, cfg):
             
         #Training
         trainerAS_test(train_loader, model, optimizer, scheduler, criterion, patience = cfg['patience'], model_name = args.model_name,
-                max_epochs = cfg['max_epochs'], batch_size = cfg['BS'], chunk_size = cfg['chunk_size'], outputrate = cfg['outputrate'],
-                path_experiments = cfg['path_experiments'])
+                max_epochs = cfg['max_epochs'], chunk_size = cfg['chunk_size'], outputrate = cfg['outputrate'], path_experiments = cfg['path_experiments'])
         
     #Testing
     checkpoint = torch.load(os.path.join(cfg['path_experiments'], "ASmodels", args.model_name, "model.pth.tar"))
     model.load_state_dict(checkpoint['state_dict'], strict = False)
 
     for split in cfg['test_split']:
-        dataset_Test  = SoccerNetFramesTesting(path_frames = cfg['path_frames'], path_labels = cfg['path_labels'], path_baidu = cfg['path_baidu'],
-                                        path_audio = cfg['path_audio'], split = split, outputrate = cfg['outputrate'], chunk_size = cfg['chunk_size'], 
-                                        baidu = cfg['baidu'], audio = cfg['audio'])
+        dataset_Test  = SoccerNetFramesTesting(path_labels = cfg['path_labels'], path_baidu = cfg['path_baidu'], path_audio = cfg['path_audio'], 
+                                        split = split, outputrate = cfg['outputrate'], chunk_size = cfg['chunk_size'], baidu = cfg['baidu'], 
+                                        audio = cfg['audio'])
 
         print('Test loader')
         test_loader = torch.utils.data.DataLoader(dataset_Test, batch_size = 1, shuffle = False, num_workers = 1, pin_memory = True)
@@ -113,7 +112,7 @@ def main(args, cfg):
         if split != 'challenge':
 
             results_l, results_t = testSpotting(test_loader, model = model, model_name = args.model_name, NMS_threshold = cfg['NMS_threshold'], 
-                                    framerate = cfg['framerate'], outputrate = cfg['outputrate'], chunk_size = cfg['chunk_size'], path_experiments = cfg['path_experiments'],)
+                            outputrate = cfg['outputrate'], chunk_size = cfg['chunk_size'], path_experiments = cfg['path_experiments'],)
 
             a_mAP = results_l["a_mAP"]
             a_mAP_per_class = results_l["a_mAP_per_class"]
@@ -150,8 +149,8 @@ def main(args, cfg):
             logging.info("a_mAP visibility unshown per class: " +  str( a_mAP_per_class_unshown))
         
         else:
-            testSpotting(test_loader, model = model, model_name = args.model_name, NMS_threshold = cfg['NMS_threshold'], 
-                                    framerate = cfg['framerate'], outputrate = cfg['outputrate'], chunk_size = cfg['chunk_size'], path_experiments = cfg['path_experiments'],)
+            results_l, results_t = testSpotting(test_loader, model = model, model_name = args.model_name, NMS_threshold = cfg['NMS_threshold'], 
+                            outputrate = cfg['outputrate'], chunk_size = cfg['chunk_size'], path_experiments = cfg['path_experiments'],)
 
         wandb.finish()
 

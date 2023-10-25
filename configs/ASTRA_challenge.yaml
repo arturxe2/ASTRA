@@ -7,24 +7,20 @@ outputrate: 2
 rC: 2
 rD: 3
 
-use_frames: False
 audio: True
 baidu: True
 
-path_frames: <path_to_frames>
-path_labels: <path_to_labels>
-path_baidu: <path_to_baidu>
-path_audio: <path_to_audio>
-path_store: <path_store_data>
-path_experiments: <path_save_experiments>
+path_labels: /path/to/labels
+path_baidu: /path/to/baidu
+path_audio: /path/to/audio
+path_store: /path/to/store
+path_experiments: /path/save/experiments
+
 store: True
 max_games: 600
 framerate: 2
 
 model: {
-  frame_augmentation: True,
-  frame_normalization: soccernet,
-  frame_resize: 224,
   feature_augmentation: True,
   mixup: True,
   mixup_nqueue: 2,
