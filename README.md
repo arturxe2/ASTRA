@@ -1,8 +1,7 @@
 # ASTRA - [3rd place solution for SoccerNet Action Spotting Challenge 2023](https://github.com/SoccerNet/sn-spotting)
 
-### ASTRA: An Action Spotting TRAnsformer for Soccer Videos (ACM MMSports'23)
-<a href="https://pytorch.org/get-started/locally/"><img alt="PyTorch" src="https://img.shields.io/badge/PyTorch-ee4c2c?logo=pytorch&logoColor=white"></a> 
-
+### [ASTRA: An Action Spotting TRAnsformer for Soccer Videos (ACM MMSports'23)](https://arturxe2.github.io/projects/ASTRA)
+<a href="https://pytorch.org/get-started/locally/"><img alt="PyTorch" src="https://img.shields.io/badge/PyTorch-ee4c2c?logo=pytorch&logoColor=white"></a>
 
 ![ASTRA's architecture](images/ASTRA_diagram.png)
 
@@ -11,8 +10,6 @@ This repository contains the PyTorch implementation of the paper:
 **ASTRA: An Action Spotting TRAnsformer for Soccer Videos**<br>
 *Artur Xarles, Sergio Escalera, Thomas B. Moeslund, and Albert Clapés*<br>
 **ACM MMSports'23**<br>
-
-* CODE PENDING SOME MODIFICATIONS (~27/10/2023)
 
 ### 1. Environment
 
